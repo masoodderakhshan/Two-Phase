@@ -1,0 +1,144 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+
+# --- Ensemble models ---
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from xgboost import XGBRegressor
+import lightgbm as lgb
+
+# === Newly added models ===
+from sklearn.linear_model import BayesianRidge, ARDRegression
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from sklearn.neighbors import KNeighborsRegressor
+# Note: ABESS is not available in standard sklearn, using ElasticNet as alternative
+from sklearn.linear_model import ElasticNet
+
+# === Plot style ===
+plt.rcParams.update({
+    'font.family': 'DejaVu Serif',
+    'font.size': 12,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+    'figure.titlesize': 14,
+    'axes.titlepad': 15
+})
+
+# === Load data ===
+file_path = r"/content/Predicted_Shear_Stress_Scenario.csv"
+df = pd.read_csv(file_path)
+print("\n=== Data Preview ===")
+print(df.head())
+
+# === Select features and target ===
+features = ['NS', 'W', 'RWD', 'UCS']
+target = 'Settlement'
+
+X = df[features]
+y = df[target]
+
+# === Handle missing values ===
+for col in X.columns:
+    if X[col].isnull().any():
+        X[col].fillna(X[col].median(), inplace=True)
+if y.isnull().any():
+    y.fillna(y.median(), inplace=True)
+
+# === Standardize features ===
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# === Train/validation/test split ===
+X_train, X_temp, y_train, y_temp = train_test_split(X_scaled, y, test_size=0.30, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+print(f"\nTrain: {X_train.shape}, Validation: {X_val.shape}, Test: {X_test.shape}")
+
+# === Initialize models ===
+models = {
+    'GradientBoosting': GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42),
+    'XGBoost': XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42),
+    'LightGBM': lgb.LGBMRegressor(n_estimators=100, learning_rate=0.1, num_leaves=31, random_state=42),
+    'RandomForest': RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42),
+    # === Newly added models ===
+    'BayesianRidge': BayesianRidge(),
+    'ARDRegression': ARDRegression(),
+    'GaussianProcess': GaussianProcessRegressor(kernel=C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)), 
+                                              random_state=42, n_restarts_optimizer=10),
+    'KNN': KNeighborsRegressor(n_neighbors=5),
+    'ElasticNet': ElasticNet(alpha=0.1, l1_ratio=0.5, random_state=42)  # Alternative to ABESS
+}
+
+# === Train, evaluate, and store results ===
+results = {}
+fig, axes = plt.subplots(3, 3, figsize=(15, 15))  # Increased subplot grid
+axes = axes.flatten()
+
+for i, (name, model) in enumerate(models.items()):
+    print(f"\n=== Training {name} ===")
+    
+    try:
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        # --- Test metrics ---
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        # --- Cross-validation ---
+        cv_scores = cross_val_score(model, X_scaled, y, cv=5, scoring='r2')
+        cv_mean = cv_scores.mean()
+        cv_std = cv_scores.std()
+
+        print(f"\n{name} Cross-Validation R² (5-fold): {np.round(cv_scores, 4)}")
+        print(f"Mean R² = {cv_mean:.4f} ± {cv_std:.4f}")
+
+        results[name] = {
+            'Test_MAE': mae,
+            'Test_RMSE': rmse,
+            'Test_R2': r2,
+            'CV_R2_Mean': cv_mean,
+            'CV_R2_Std': cv_std
+        }
+
+        # --- Plot Actual vs Predicted ---
+        if i < len(axes):  # Ensure we don't exceed subplot count
+            ax = axes[i]
+            ax.scatter(y_test, y_pred, color='royalblue', alpha=0.7, edgecolors='k')
+            ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+            ax.set_title(f"{name}\nR²={r2:.3f}, RMSE={rmse:.3f}, MAE={mae:.3f}")
+            ax.set_xlabel("Actual Settlement")
+            ax.set_ylabel("Predicted Settlement")
+    
+    except Exception as e:
+        print(f"Error training {name}: {e}")
+        results[name] = {
+            'Test_MAE': np.nan,
+            'Test_RMSE': np.nan,
+            'Test_R2': np.nan,
+            'CV_R2_Mean': np.nan,
+            'CV_R2_Std': np.nan
+        }
+
+# Remove any empty subplots
+for j in range(len(models), len(axes)):
+    fig.delaxes(axes[j])
+
+plt.tight_layout()
+plt.show()
+
+# === Display comparison table ===
+print("\n=== Model Performance Summary (Test + CV) ===")
+results_df = pd.DataFrame(results).T
+print(results_df.round(4))
+
+# === Sort by R2 score for better comparison ===
+print("\n=== Models Sorted by Test R² Score ===")
+sorted_results = results_df.sort_values('Test_R2', ascending=False)
+print(sorted_results.round(4))

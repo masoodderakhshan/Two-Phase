@@ -1,0 +1,23 @@
+Settlement:
+=== RandomForest Cross-validation ===
+Cross-validated R² scores: [0.92461974 0.94315417 0.95512894 0.95997515 0.93568869]
+Mean R²: 0.9437 | Std: 0.0128
+
+=== All Models Comparison (Test Set) ===
+                           Test_MAE  Test_RMSE   Test_R2
+GradientBoostingRegressor  0.083265   0.115129  0.995420
+XGBoost                    0.084815   0.114714  0.995453
+LightGBM                   0.060989   0.118795  0.995123
+RandomForest               0.044214   0.067471  0.998427
+
+----------------------------------------------------------------
+Stress Terminal:
+[LightGBM]
+Cross-validated R² scores: [0.93787491 0.93237487 0.95623597 0.93092358 0.76893303]
+Mean R²: 0.9053 | Std: 0.0688
+=== All Models Comparison (Test Set) ===
+                           Test_MAE  Test_RMSE   Test_R2
+GradientBoostingRegressor  0.855191   1.200009  0.991539
+XGBoost                    0.877362   1.258727  0.990691
+LightGBM                   0.582816   0.889898  0.995347
+RandomForest               0.698759   1.078244  0.993169
