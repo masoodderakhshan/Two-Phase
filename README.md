@@ -27,7 +27,7 @@ submitted to *Journal of GeoEngineering*.
 School of Civil Engineering, Iran University of Science and Technology (IUST), Tehran, Iran
 * [![ORCID](https://img.shields.io/badge/ORCID-0009--0009--3453--8304-green)](https://orcid.org/0009-0009-3453-8304)
 
-**Mehrab Ramzani **
+**Mehrab Ramzani**
 School of Civil Engineering, Iran University of Science and Technology (IUST), Tehran, Iran
 * [![ORCID](https://img.shields.io/badge/ORCID-0009--0003--7281--3051-green)](https://orcid.org/0009-0009-3453-8304)
 ---
